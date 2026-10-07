@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Menapedia</title>
+  <meta name="description" content="A 3D clay-map encyclopedia of the Middle East and North Africa, with extended articles on Turkey, Iran and Azerbaijan.">
+  <meta name="color-scheme" content="light dark">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Readex+Pro:wght@300..700&family=Reem+Kufi:wght@400..700&display=swap">
+  <link rel="stylesheet" href="css/styles.css">
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "./vendor/three/three.module.min.js",
+        "three/addons/": "./vendor/three/addons/"
+      }
+    }
+  </script>
+  <script type="module" src="js/main.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#content">Skip to article</a>
+
+  <header class="topbar">
+    <div class="topbar__inner glass">
+      <a class="brand" href="#atlas" aria-label="Menapedia, atlas home">
+        <span class="brand__mark" aria-hidden="true"></span>
+        <span class="brand__name">Menapedia</span>
+      </a>
+      <form class="search" id="search-form" role="search">
+        <label for="search-input" class="visually-hidden">Search countries or capitals</label>
+        <input id="search-input" type="search" list="country-list" placeholder="Search the atlas" autocomplete="off" spellcheck="false" enterkeyhint="go">
+        <datalist id="country-list"></datalist>
+        <kbd class="search__key" aria-hidden="true">/</kbd>
+        <p id="search-status" class="search__status" role="status" aria-live="polite"></p>
+      </form>
+      <nav class="topnav" aria-label="Site">
+        <a href="#atlas">Atlas</a>
+        <a href="#about">Design notes</a>
+      </nav>
+      <button class="icon-btn" id="theme-toggle" type="button" aria-label="Switch theme">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path class="sun" d="M12 4V2m0 20v-2m8-8h2M2 12h2m13.66-5.66 1.41-1.41M4.93 19.07l1.41-1.41m0-11.32L4.93 4.93m14.14 14.14-1.41-1.41M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10Z"/><path class="moon" d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <section class="stage" id="stage" aria-label="3D map">
+    <div class="stage__canvas-host" id="stage-canvas" tabindex="0" aria-label="3D map of the Middle East and North Africa" aria-describedby="stage-help">
+      <p id="stage-help" class="visually-hidden">Drag to turn the map, scroll or pinch to zoom. With the map focused, arrow keys turn it and plus or minus zoom. Country names on the map are buttons that open each article.</p>
+    </div>
+
+    <div class="stage__fallback" id="stage-fallback" hidden>
+      <p>The 3D map needs WebGL, which this browser has turned off. Every article is still available below.</p>
+    </div>
+
+    <div class="hud hud--regions" id="region-chips" role="group" aria-label="Focus a region"></div>
+
+    <form class="hud hud--layers glass" id="layer-form" aria-labelledby="layer-title">
+      <div class="hud__row">
+        <p class="hud__title" id="layer-title">Map height</p>
+        <div class="hud__tools">
+          <button class="tool" id="btn-overview" type="button">
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5m11-5v5h-5"/></svg>
+            <span class="label">Overview</span>
+          </button>
+          <button class="tool" id="btn-motion" type="button" aria-pressed="false">
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M9 6v12M15 6v12"/></svg>
+            <span class="label">Motion on</span>
+          </button>
+        </div>
+      </div>
+      <div class="seg" role="radiogroup" aria-labelledby="layer-title"></div>
+      <p class="hud__legend" id="layer-legend" aria-live="polite"></p>
+    </form>
+
+  </section>
+
+  <main id="content" tabindex="-1"></main>
+
+  <footer class="footer">
+    <div class="footer__inner">
+      <p><strong>Menapedia</strong> is an illustrated encyclopedia of the Middle East and North Africa.</p>
+      <p>Map data: Natural Earth (public domain). Flags: flag-icons (MIT). Figures are rounded estimates; see <a href="#about">Design notes</a> for sources. Boundaries shown do not imply endorsement of any claim.</p>
+    </div>
+  </footer>
+</body>
+</html>
