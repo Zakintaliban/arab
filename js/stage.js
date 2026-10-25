@@ -129,11 +129,12 @@ function cssColor(name, fallback) {
 }
 
 export class MapStage extends EventTarget {
-  constructor(container, geo, articles, { describe } = {}) {
+  constructor(container, geo, articles, { describe, labelHint = 'Open article' } = {}) {
     super();
     this.container = container;
     this.articles = articles;
     this.describe = describe;
+    this.labelHint = labelHint;
     this.project = makeProjection(geo.projection);
     this.extent = geo.extent;
     this.countries = new Map();
@@ -336,7 +337,7 @@ export class MapStage extends EventTarget {
     el.className = 'map-label' + (state.article?.featured ? ' map-label--featured' : '') + (state.disputed ? ' map-label--disputed' : '');
     el.textContent = state.disputed ? 'Western Sahara' : state.name;
     el.dataset.code = state.code;
-    el.setAttribute('aria-label', state.disputed ? 'Western Sahara (disputed territory)' : `Open article: ${state.article.name}`);
+    el.setAttribute('aria-label', state.disputed ? 'Western Sahara (disputed territory)' : `${this.labelHint}: ${state.article.name}`);
     el.addEventListener('click', (e) => {
       e.stopPropagation();
       this.emit('select', { code: state.code });
@@ -490,6 +491,7 @@ export class MapStage extends EventTarget {
     this.seaMat.color.copy(cssColor('--map-sea', '#bfd6ea'));
     this.contextMat.color.copy(cssColor('--map-land', '#dcd8e6'));
     this.disputedMat.color.copy(cssColor('--map-disputed', '#e8e2d4'));
+    this.route?.material.color.copy(cssColor('--accent', '#2c47b8'));
     const offsets = [0, 0.055, -0.05, 0.1, -0.085, 0.03, -0.025];
     for (const s of this.countries.values()) {
       if (s.disputed) continue;
@@ -534,12 +536,14 @@ export class MapStage extends EventTarget {
     const r = this.frameRequest;
     if (r.type === 'country') this.focusCountry(r.code, animate);
     else if (r.type === 'region') this.focusRegion(r.id, animate);
+    else if (r.type === 'box') this.flyToBox(r.box, { ...r.opts, animate });
     else this.overview(animate);
   }
 
   select(code, { animate = true } = {}) {
     this.selected = code && this.countries.has(code) ? code : null;
     this.regionFocus = null;
+    this.highlighted = null;
     this.updateLift();
     this.updateDim();
     if (this.selected) this.focusCountry(this.selected, animate);
@@ -549,6 +553,7 @@ export class MapStage extends EventTarget {
   focusRegion(regionId, animate = true) {
     this.regionFocus = regionId;
     this.selected = null;
+    this.highlighted = null;
     this.updateLift();
     this.updateDim();
     if (!regionId) { this.overview(animate); return; }
@@ -563,20 +568,21 @@ export class MapStage extends EventTarget {
     this.flyToBox(box, { polar: 0.8, pad: 1.1, animate });
   }
 
-  // Show pins for a country's capital, cities and landmarks.
+  // Show pins. Items with an id are buttons that emit 'marker'; owner is the
+  // country whose tile the pin sits on (defaults to code).
   setMarkers(code, items) {
     for (const m of this.markers) this.scene.remove(m.obj);
     this.markers = [];
-    if (!code) { this.kick(); return; }
+    if (!items.length) { this.kick(); return; }
     for (const item of items) {
       const [x, y] = this.project(item.at);
-      const el = document.createElement(item.kind === 'landmark' ? 'button' : 'span');
+      const el = document.createElement(item.id ? 'button' : 'span');
       el.className = `map-marker map-marker--${item.kind}`;
       el.innerHTML = `<span class="map-marker__dot" aria-hidden="true"></span><span class="map-marker__text"></span>`;
       el.querySelector('.map-marker__text').textContent = item.name;
-      if (item.kind === 'landmark') {
+      if (item.id) {
         el.type = 'button';
-        el.setAttribute('aria-label', `Show landmark in article: ${item.name}`);
+        el.setAttribute('aria-label', item.label || `Show landmark in article: ${item.name}`);
         el.addEventListener('click', (e) => { e.stopPropagation(); this.emit('marker', { id: item.id }); });
       } else {
         el.setAttribute('aria-hidden', 'true');
@@ -584,7 +590,7 @@ export class MapStage extends EventTarget {
       const obj = new CSS2DObject(el);
       obj.center.set(0, 0.5);
       this.scene.add(obj);
-      this.markers.push({ obj, el, x, y, owner: item.owner || code, kind: item.kind });
+      this.markers.push({ obj, el, x, y, owner: item.owner || code, kind: item.kind, priority: item.priority });
     }
     this.placeMarkers();
     this.labelsDirty = true;
@@ -612,6 +618,66 @@ export class MapStage extends EventTarget {
     this.sway = null;
   }
 
+  // Keep these countries in full colour and dim the rest (null clears).
+  highlight(codes) {
+    this.highlighted = codes?.length ? new Set(codes) : null;
+    this.selected = null;
+    this.regionFocus = null;
+    this.updateLift();
+    this.updateDim();
+    this.kick();
+  }
+
+  // Frame a set of [lat, lon] points, never closer than a ~18-unit box.
+  flyToPoints(ats, animate = true) {
+    const pts = ats.map((a) => this.project(a));
+    const xs = pts.map((p) => p[0]);
+    const ys = pts.map((p) => p[1]);
+    const cx = (Math.min(...xs) + Math.max(...xs)) / 2;
+    const cy = (Math.min(...ys) + Math.max(...ys)) / 2;
+    const box = {
+      minX: Math.min(...xs, cx - 9), maxX: Math.max(...xs, cx + 9),
+      minY: Math.min(...ys, cy - 9), maxY: Math.max(...ys, cy + 9),
+    };
+    const opts = { polar: 0.8, pad: 1.3 };
+    this.frameRequest = { type: 'box', box, opts };
+    this.userMoved = false;
+    this.flyToBox(box, { ...opts, animate });
+  }
+
+  // A clay tube arcing through [lat, lon] points in order; draws itself in.
+  setRoute(ats) {
+    if (this.route) {
+      this.scene.remove(this.route);
+      this.route.geometry.dispose();
+      this.route = null;
+    }
+    if (!ats || ats.length < 2) { this.kick(); return; }
+    const y0 = BASE_H + 0.9;
+    const pts = ats.map((a) => { const [x, z] = this.project(a); return new THREE.Vector3(x, y0, z); });
+    const path = new THREE.CurvePath();
+    for (let i = 0; i < pts.length - 1; i++) {
+      const mid = pts[i].clone().add(pts[i + 1]).multiplyScalar(0.5);
+      mid.y += 1.2 + pts[i].distanceTo(pts[i + 1]) * 0.22;
+      path.add(new THREE.QuadraticBezierCurve3(pts[i], mid, pts[i + 1]));
+    }
+    const radial = 8;
+    const geom = new THREE.TubeGeometry(path, 48 * (pts.length - 1), 0.17, radial, false);
+    this.route = new THREE.Mesh(geom, clayMaterial(cssColor('--accent', '#2c47b8'), 0.3));
+    this.route.castShadow = true;
+    this.route.userData.step = radial * 6; // index count per tube segment
+    this.routeReveal = reducedMotion.matches ? 1 : 0;
+    this.revealRoute();
+    this.scene.add(this.route);
+    this.kick();
+  }
+
+  revealRoute() {
+    const g = this.route.geometry;
+    const step = this.route.userData.step;
+    g.setDrawRange(0, Math.floor((g.index.count * this.routeReveal) / step) * step);
+  }
+
   // ───────────────────────────── internals ─────────────────────────────
   updateLift() {
     for (const s of this.countries.values()) {
@@ -624,6 +690,7 @@ export class MapStage extends EventTarget {
       let dim = 0;
       if (this.selected && s.code !== this.selected) dim = 0.55;
       if (this.regionFocus && s.regionId !== this.regionFocus) dim = 0.6;
+      if (this.highlighted && !this.highlighted.has(s.code)) dim = 0.85;
       if (s.noData && this.metric !== 'relief') dim = Math.max(dim, 0.75);
       s.dimTarget = dim;
     }
@@ -648,7 +715,7 @@ export class MapStage extends EventTarget {
   placeMarkers() {
     for (const m of this.markers) {
       const s = this.countries.get(m.owner);
-      const h = s ? s.h + s.capTop + s.lift : 1;
+      const h = s ? s.h + s.capTop + s.lift : 0.55; // no owner: a low context tile
       m.obj.position.set(m.x, h + 0.15, m.y);
     }
   }
@@ -801,6 +868,12 @@ export class MapStage extends EventTarget {
       active = true;
     }
 
+    if (this.route && this.routeReveal < 1) {
+      this.routeReveal = Math.min(1, this.routeReveal + dt / 1.8);
+      this.revealRoute();
+      active = true;
+    }
+
     // Hover picking (mouse only)
     if (this.pickPending && !this.userDriving) {
       this.pickPending = false;
@@ -841,7 +914,7 @@ export class MapStage extends EventTarget {
       else if (this.regionFocus && s.regionId === this.regionFocus) p += 50;
       items.push({ el: s.labelEl, p, focusable: true });
     }
-    for (const m of this.markers) items.push({ el: m.el, p: m.kind === 'capital' ? 2e5 : m.kind === 'landmark' ? 900 : 800 });
+    for (const m of this.markers) items.push({ el: m.el, p: m.priority ?? (m.kind === 'capital' ? 2e5 : m.kind === 'landmark' ? 900 : 800) });
     for (const c of this.contextLabels || []) items.push({ el: c.el, p: c.priority });
     items.sort((a, b) => b.p - a.p);
     const kept = [];

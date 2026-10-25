@@ -6,7 +6,8 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const html = readFileSync(join(root, 'index.html'), 'utf8');
+const [input = 'index.html', output = 'dist/artifact.html'] = process.argv.slice(2);
+const html = readFileSync(join(root, input), 'utf8');
 const head = html.match(/<head>([\s\S]*?)<\/head>/)[1];
 const body = html.match(/<body>([\s\S]*?)<\/body>/)[1];
 const keep = head
@@ -14,5 +15,5 @@ const keep = head
   .filter((l) => !/<meta (charset|name="viewport")/.test(l))
   .join('\n');
 mkdirSync(join(root, 'dist'), { recursive: true });
-writeFileSync(join(root, 'dist/artifact.html'), `${keep.trim()}\n${body.trim()}\n`);
-console.log('wrote dist/artifact.html');
+writeFileSync(join(root, output), `${keep.trim()}\n${body.trim()}\n`);
+console.log(`wrote ${output}`);

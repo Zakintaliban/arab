@@ -1,0 +1,164 @@
+/* Prophets Atlas: Menapedia's tokens and components (css/styles.css), with a
+   sand-clay map so the pins and the journey line carry the colour, and one
+   identity colour per religion (validated order, always shown with a name). */
+
+:root {
+  --clay-maghreb: #e2c89a;
+  --clay-nile: #e2c89a;
+  --clay-mashriq: #e2c89a;
+  --clay-arabia: #e2c89a;
+  --clay-plateau: #e2c89a;
+  --font-script: "Amiri", "Frank Ruhl Libre", "Noto Serif", Georgia, serif;
+
+  --rel-judaism: #2a78d6;
+  --rel-christianity: #eb6834;
+  --rel-islam: #1baf7a;
+  --rel-zoroastrianism: #eda100;
+  --rel-mandaeism: #e87ba4;
+  --rel-druze: #008300;
+  --rel-samaritanism: #4a3aa7;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --clay-maghreb: #9a8058; --clay-nile: #9a8058; --clay-mashriq: #9a8058; --clay-arabia: #9a8058; --clay-plateau: #9a8058;
+    --rel-judaism: #3987e5; --rel-christianity: #d95926; --rel-islam: #199e70; --rel-zoroastrianism: #c98500;
+    --rel-mandaeism: #d55181; --rel-druze: #008300; --rel-samaritanism: #9085e9;
+  }
+}
+:root[data-theme="dark"] {
+  --clay-maghreb: #9a8058; --clay-nile: #9a8058; --clay-mashriq: #9a8058; --clay-arabia: #9a8058; --clay-plateau: #9a8058;
+  --rel-judaism: #3987e5; --rel-christianity: #d95926; --rel-islam: #199e70; --rel-zoroastrianism: #c98500;
+  --rel-mandaeism: #d55181; --rel-druze: #008300; --rel-samaritanism: #9085e9;
+}
+
+/* A clay tablet as the brand mark */
+.brand__mark--tablet {
+  rotate: none; scale: 1; width: 22px; height: 28px; border-radius: 11px 11px 5px 5px;
+  background:
+    linear-gradient(var(--ink-2), var(--ink-2)) 50% 38% / 10px 2px no-repeat,
+    linear-gradient(var(--ink-2), var(--ink-2)) 50% 58% / 10px 2px no-repeat,
+    var(--clay-arabia);
+}
+
+.stage:not([data-view="home"]) .hud--regions { display: none; }
+.hud--regions .chip[aria-pressed="true"] .swatch { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--tone); }
+
+/* Map key */
+.key { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: var(--step--1); color: var(--ink-2); }
+.key li { display: flex; align-items: center; gap: 8px; }
+.key__sym { width: 11px; height: 11px; flex: none; }
+.key__sym--born { border-radius: 50%; background: var(--ink); box-shadow: 0 0 0 2px var(--halo), 0 0 0 3.5px var(--ink); }
+.key__sym--life { background: var(--accent); rotate: 45deg; border-radius: 2px; width: 9px; height: 9px; }
+.key__sym--died { background: var(--ink-2); border-radius: 2px; }
+.key__sym--route { width: 22px; height: 5px; border-radius: 3px; background: var(--accent); }
+
+/* Map pins drawn by the stage (kinds: figure, born, life, died) */
+.map-marker--figure { font-weight: 600; }
+.map-marker--figure .map-marker__dot { width: 10px; height: 10px; background: var(--accent); box-shadow: 0 0 0 2px var(--halo); }
+.map-marker--born { font-weight: 600; }
+.map-marker--born .map-marker__dot { width: 11px; height: 11px; background: var(--ink); box-shadow: 0 0 0 2px var(--halo), 0 0 0 4px var(--ink); }
+.map-marker--life .map-marker__dot { border-radius: 2px; rotate: 45deg; width: 9px; height: 9px; background: var(--accent); }
+.map-marker--died .map-marker__dot { border-radius: 2px; background: var(--ink-2); }
+.map-marker[class*="map-marker--"]:is(button) { pointer-events: auto; cursor: pointer; }
+.map-marker:is(button):hover .map-marker__text { text-decoration: underline; }
+.map-label--context { opacity: 0.8; }
+
+/* Religion dots and badges */
+.rdots { display: inline-flex; gap: 5px; align-items: center; }
+.rdot {
+  width: 10px; height: 10px; border-radius: 50%; flex: none; background: var(--c);
+  box-shadow: inset 1px 1px 2px rgb(255 255 255 / 0.5), inset -1px -1px 2px rgb(0 0 0 / 0.25);
+}
+.rchip {
+  display: inline-flex; align-items: center; gap: 8px; padding: 4px 12px 4px 10px; border-radius: 999px;
+  font-size: 0.85rem; font-weight: 500; color: var(--ink); text-decoration: none;
+  background: color-mix(in oklab, var(--c) 14%, var(--surface));
+  border: 1px solid color-mix(in oklab, var(--c) 55%, transparent);
+}
+a.rchip:hover { background: color-mix(in oklab, var(--c) 24%, var(--surface)); }
+
+/* Scripts under the title */
+.scripts { display: flex; flex-wrap: wrap; gap: 6px 22px; align-items: baseline; }
+.script { display: inline-flex; align-items: baseline; gap: 8px; }
+.script__text { font-family: var(--font-script); font-size: 1.9rem; line-height: 1.2; color: var(--ink); }
+.script__text:lang(he) { font-family: "Frank Ruhl Libre", "Noto Serif Hebrew", serif; }
+.script__label { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-2); }
+
+.identity {
+  margin-top: 4px; padding: 12px 16px; border-radius: var(--radius-s); max-width: 70ch;
+  background: color-mix(in oklab, var(--accent) 8%, var(--surface)); border: 1px solid color-mix(in oklab, var(--accent) 35%, transparent);
+  font-size: 0.95rem;
+}
+
+/* Figure cards */
+.fig-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; }
+.fcard2 {
+  position: relative; display: grid; gap: 4px; height: 100%; box-sizing: border-box;
+  padding: 14px 16px 14px; border-radius: var(--radius-m);
+  background: color-mix(in oklab, var(--clay-arabia) 22%, var(--surface));
+  color: var(--ink); text-decoration: none; transition: transform 0.18s;
+}
+.fcard2:hover { transform: translateY(-2px); }
+.fcard2:active { transform: scale(0.985); }
+.fcard2__n { font-size: 0.75rem; font-weight: 600; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.fcard2__name { font-family: var(--font-display); font-weight: 600; font-size: 1.3rem; line-height: 1.15; word-spacing: 0.06em; }
+.fcard2__alt { font-size: 0.85rem; color: var(--ink-2); }
+.fcard2__foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 6px; font-size: 0.8rem; color: var(--ink-2); }
+.fig-grid--mini { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+
+.rel-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+.relcard {
+  display: grid; gap: 6px; height: 100%; box-sizing: border-box; padding: 16px 18px; border-radius: var(--radius-m);
+  background: var(--surface); border: 1px solid var(--line); border-top: 4px solid var(--c);
+  color: var(--ink); text-decoration: none;
+}
+.relcard:hover { border-color: var(--c); }
+.relcard__name { font-family: var(--font-display); font-weight: 600; font-size: 1.25rem; }
+.relcard__meta { font-size: 0.85rem; color: var(--ink-2); }
+
+.filter-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
+
+/* Per-religion sections in an entry */
+.view { border-left: 4px solid var(--c); padding-left: 18px; }
+.view__role { margin: 2px 0 10px; }
+.view__role .rchip { font-size: 0.8rem; }
+
+/* Places and miracles */
+.places { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; max-width: 70ch; }
+.place {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 4px 12px; align-items: start;
+  padding: 12px 14px; border-radius: var(--radius-s); background: var(--surface); border: 1px solid var(--line);
+  scroll-margin-top: calc(var(--topbar-h) + 24px);
+}
+.place.is-flash { animation: flash 1.6s ease-out; }
+.place__sym { margin-top: 6px; }
+.place__name { font-weight: 600; }
+.place__note { grid-column: 2; color: var(--ink-2); font-size: 0.92rem; }
+.place .linkbtn { grid-row: 1; grid-column: 3; padding: 0; }
+.badge--trad { text-transform: none; letter-spacing: 0.02em; background: color-mix(in oklab, var(--clay-arabia) 35%, var(--surface)); border-color: color-mix(in oklab, var(--ink-2) 35%, transparent); margin-left: 6px; }
+.miracles { margin: 0; padding-left: 1.2em; max-width: 68ch; display: grid; gap: 6px; }
+.refs { margin: 0; padding-left: 1.2em; color: var(--ink-2); display: grid; gap: 4px; }
+
+@media (max-width: 720px) {
+  .key li:not(:nth-child(-n+4)) { display: none; }
+  .key { gap: 4px 12px; font-size: 0.78rem; }
+  #key-note { display: none; }
+  .script__text { font-size: 1.55rem; }
+  .place { grid-template-columns: auto minmax(0, 1fr); }
+  .place .linkbtn { grid-row: auto; grid-column: 2; }
+}
+
+.group-title { font-size: 1.05rem; font-weight: 600; margin: 28px 0 12px; display: flex; align-items: baseline; gap: 8px; }
+.group-title .note { margin: 0; }
+.well dd.well__text { font-size: 1rem; font-weight: 500; line-height: 1.4; }
+.rdot--title { display: inline-block; width: 0.5em; height: 0.5em; vertical-align: 0.15em; }
+
+/* Country names stay quiet here; the prophets' pins carry the map. */
+.map-label:not(.map-label--context) { font-weight: 500; font-size: 0.72rem; color: var(--ink-2); }
+.map-label--featured::before { display: none; }
+/* A pin whose name collides keeps its dot, so crowded areas still show how many there are. */
+.map-marker.is-hidden { opacity: 1; visibility: visible; pointer-events: none; }
+.map-marker.is-hidden .map-marker__dot { pointer-events: auto; cursor: pointer; }
+.map-marker.is-hidden .map-marker__text { visibility: hidden; }
+/* Named pins sit above the bare dots of collided ones (the renderer sets inline z-index by depth). */
+.map-marker:not(.is-hidden) { z-index: 1000000 !important; }

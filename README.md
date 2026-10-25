@@ -25,6 +25,37 @@ Turkey, Iran and Azerbaijan have extended articles.
   - reduced-motion and reduced-transparency support;
   - every chart is a real table.
 
+## Prophets Atlas (`prophets.html`)
+
+A sister site built on the same 3D map. It has one entry per person, and where
+traditions share a figure (Ibrahim / Abraham / Avraham) the entry has a section for
+each religion's view. It covers:
+
+- **Figures:** all 25 prophets named in the Qur'an, 21 further prophets and
+  prophetesses of the Hebrew Bible, and Zarathustra.
+- **Views:** Judaism, Christianity, Islam, Zoroastrianism, and the Mandaean, Druze and
+  Samaritan communities.
+- **Each entry:**
+  - names in each tradition, with Arabic, Hebrew and Greek spellings;
+  - life, signs and miracles;
+  - places (born, active, died or buried; traditional sites are flagged), with a clay
+    journey line on the map;
+  - scripture references.
+- **Search** accepts every tradition's spelling, including Indonesian forms such as
+  Syu'aib, Dzulkifli or Daud.
+
+Content lives in `prophets/data/`:
+
+| File | Contents |
+| --- | --- |
+| `quran.js` | The 25 prophets named in the Qur'an |
+| `bible.js` | Further prophets and prophetesses of the Hebrew Bible |
+| `other.js` | Zarathustra |
+| `religions.js` | The seven religions |
+
+Open http://localhost:8080/prophets.html; deep links use the entry id, e.g.
+`#ibrahim`, `#religion-druze`, `#in-iq`.
+
 ## Run it
 
 It is a static site with no build step:
