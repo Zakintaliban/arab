@@ -2,6 +2,7 @@
 // escaped through esc()/prose() before it reaches the DOM.
 import { FIGURES, FIGURE_BY_ID, GROUPS, RELIGIONS, RELIGION_BY_ID, countriesOf } from './data/index.js';
 import { esc, prose } from '../js/format.js';
+import { STORIES, ULUL_AZMI } from './data/stories.js';
 
 const KIND = { born: 'Born', life: 'Lived or active', died: 'Died or buried' };
 const IN = {
@@ -46,6 +47,8 @@ export function homeView(religion) {
       <h1 id="page-title" tabindex="-1">Prophets of the Middle East</h1>
       <p class="lede">Adam, Ibrahim, Musa, Isa, Muhammad and Zarathustra all came from the lands on the map above. Each entry covers one person: where they came from, what they did, the signs and miracles told about them, and what each religion believes about them, in its own section.</p>
     </header>
+
+    ${ululAzmiBlock()}
 
     <section class="block" aria-labelledby="h-figures">
       <h2 id="h-figures">${religion ? `Recognised in ${esc(inName(RELIGION_BY_ID[religion]))}` : 'All figures'}</h2>
@@ -130,6 +133,7 @@ export function figureView(id) {
       <h1 id="page-title" tabindex="-1">${f.names.map((n) => esc(n[1])).filter((v, i, a) => a.indexOf(v) === i).join(' <span class="amp">·</span> ')}</h1>
       <div class="scripts">${f.scripts.map(([lang, text]) => `<span class="script"><span class="script__text" lang="${lang}" dir="auto">${esc(text)}</span><span class="script__label">${scriptLabel[lang]}</span></span>`).join('')}</div>
       ${f.identity ? `<p class="identity">${prose(f.identity)}</p>` : ''}
+      ${STORIES[f.id] ? `<a class="story-cta clay" href="#story-${f.id}"><span class="badge">Ulul Azmi</span><span class="story-cta__title">Read the story</span><span class="story-cta__meta">${STORIES[f.id].chapters.length} chapters with a guided map, from ${esc(STORIES[f.id].chapters[0].title)} to ${esc(STORIES[f.id].chapters.at(-1).title)}</span></a>` : ''}
     </header>
     <div class="article-grid">
       <nav class="toc" aria-label="Contents">
@@ -264,5 +268,88 @@ export function aboutView() {
       <h2 id="h-check">Checking</h2>
       <p>The entries summarise widely shared teaching and give the main scripture passages, so readers can check them at the source. Within each religion there are different schools and opinions; where the difference is well known, the entry mentions it.</p>
     </section>
+  </article>`;
+}
+
+// ───────────────────────────── Ulul Azmi stories ─────────────────────────────
+const SOURCES = {
+  sirah: 'Early biography of Muhammad by Ibn Ishaq, edited by Ibn Hisham',
+  hadith: 'Reports of the Prophet’s words and deeds, such as Bukhari and Muslim',
+  tafsir: 'Classical commentary on the Qur’an',
+  midrash: 'Rabbinic interpretation and legend',
+  'church tradition': 'Tradition of the churches, outside the Bible',
+  apocrypha: 'Early Christian writings outside the Bible',
+  tradition: 'Local or later tradition',
+  scholarship: 'Modern historians and archaeologists',
+};
+
+// Escape, then turn [sirah]-style tags into labelled badges.
+function tagged(text) {
+  return prose(text).replace(/\[(sirah|hadith|tafsir|midrash|church tradition|apocrypha|tradition|scholarship)\]/g,
+    (_, t) => `<span class="src" title="${SOURCES[t]}">${t}</span>`);
+}
+
+function ululAzmiBlock() {
+  return `<section class="block" aria-labelledby="h-ulul">
+    <h2 id="h-ulul">The Ulul Azmi: five stories with a guided map</h2>
+    <p class="block__intro">The Qur'an tells the Prophet to be patient “as were the messengers of firm resolve”, ulu al-ʿazm (46:35). Most commentators identify them as the five named together in 33:7 and 42:13. Each has a story told chapter by chapter, with the map following along.</p>
+    <ul class="fig-grid" role="list">
+      ${ULUL_AZMI.map((id) => {
+        const f = FIGURE_BY_ID[id];
+        return `<li><a class="fcard2 clay" href="#story-${id}">
+          <span class="fcard2__n">${STORIES[id].chapters.length} chapters</span>
+          <span class="fcard2__name">${esc(f.short)}</span>
+          ${altNames(f) ? `<span class="fcard2__alt">${esc(altNames(f))}</span>` : ''}
+          <span class="fcard2__foot"><span>${esc(STORIES[id].chapters[0].title)} → ${esc(STORIES[id].chapters.at(-1).title)}</span></span>
+        </a></li>`;
+      }).join('')}
+    </ul>
+  </section>`;
+}
+
+export function storyStrip(id, active) {
+  const chs = STORIES[id].chapters;
+  return `<ol class="strip__ticks" aria-label="Chapters">${chs.map((c, i) => `<li><button type="button" class="strip__tick${i === active ? ' is-current' : ''}" data-chapter="${i}" aria-label="Chapter ${i + 1}: ${esc(c.title)}"${i === active ? ' aria-current="step"' : ''}><span>${i + 1}</span></button></li>`).join('')}</ol>
+    <p class="strip__now"><span class="strip__when">${esc(chs[active].when)}</span> ${esc(chs[active].title)}</p>
+    <ul class="key key--strip" aria-label="Map key">
+      <li><span class="key__sym key__sym--event" aria-hidden="true"></span>Event</li>
+      <li><span class="key__sym key__sym--alt" aria-hidden="true"></span>Disputed site</li>
+      <li><span class="key__sym key__sym--route" aria-hidden="true"></span>This chapter</li>
+      <li><span class="key__sym key__sym--beads" aria-hidden="true"></span>Uncertain route</li>
+      <li><span class="key__sym key__sym--trail" aria-hidden="true"></span>Earlier chapters</li>
+    </ul>`;
+}
+
+export function storyView(id) {
+  const f = FIGURE_BY_ID[id];
+  const story = STORIES[id];
+  const next = ULUL_AZMI[(ULUL_AZMI.indexOf(id) + 1) % ULUL_AZMI.length];
+  const placeChips = (list, alt) => list.map((pl) => `<li><button type="button" class="chip chip--place${alt ? ' chip--alt' : ''}" data-fly="${pl.at.join(',')}">${esc(pl.name)}${alt ? ' <span class="visually-hidden">(disputed site)</span>' : ''}${pl.trad && !alt ? ' <span class="src">tradition</span>' : ''}</button></li>`).join('');
+  return `<article class="folio folio--story">
+    <header class="folio__head">
+      <p class="eyebrow"><a href="#atlas">Prophets</a> <span aria-hidden="true">/</span> <a href="#${id}">${esc(f.short)}</a> <span class="badge">Ulul Azmi</span></p>
+      <h1 id="page-title" tabindex="-1">The story of ${f.names.map((n) => esc(n[1])).filter((v, i, a) => a.indexOf(v) === i).join(' <span class="amp">·</span> ')}</h1>
+      <p class="lede">${prose(story.intro)}</p>
+      <details class="sources-key">
+        <summary>What the source labels mean</summary>
+        <dl>${Object.entries(SOURCES).map(([k, v]) => `<div><dt><span class="src">${k}</span></dt><dd>${esc(v)}</dd></div>`).join('')}</dl>
+        <p>Text without a label comes from scripture, cited by chapter and verse.</p>
+      </details>
+      <nav aria-label="Chapters" class="chapter-index"><ol>${story.chapters.map((c, i) => `<li><a href="#ch-${i}" data-scroll="ch-${i}">${esc(c.title)}</a></li>`).join('')}</ol></nav>
+    </header>
+    ${story.chapters.map((c, i) => `<section class="chapter" id="ch-${i}" data-chapter="${i}" aria-labelledby="h-ch-${i}">
+      <p class="eyebrow">Chapter ${i + 1} of ${story.chapters.length} · ${esc(c.when)}</p>
+      <h2 id="h-ch-${i}">${esc(c.title)}</h2>
+      ${c.text.map((t) => `<p>${tagged(t)}</p>`).join('')}
+      ${c.notes.length ? `<aside class="differs" aria-label="How the accounts differ">
+        <p class="differs__title">How the accounts differ</p>
+        <ul>${c.notes.map(([rel, label, text]) => `<li><span class="rchip" style="--c: var(--rel-${rel})"><span class="rdot" aria-hidden="true"></span>${esc(label)}</span> <span>${tagged(text)}</span></li>`).join('')}</ul>
+      </aside>` : ''}
+      ${(c.places?.length || c.alt?.length) ? `<ul class="chips place-chips" role="list" aria-label="Places in this chapter">${placeChips(c.places || [], false)}${placeChips(c.alt || [], true)}</ul>` : ''}
+    </section>`).join('')}
+    <nav class="pager" aria-label="More">
+      <a class="pager__link chip clay-chip" href="#${id}"><span aria-hidden="true">←</span> Entry: ${esc(f.short)}</a>
+      <a class="pager__link chip clay-chip" href="#story-${next}">Next story: ${esc(FIGURE_BY_ID[next].short)} <span aria-hidden="true">→</span></a>
+    </nav>
   </article>`;
 }

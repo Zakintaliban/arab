@@ -43,6 +43,17 @@ each religion's view. It covers:
   - scripture references.
 - **Search** accepts every tradition's spelling, including Indonesian forms such as
   Syu'aib, Dzulkifli or Daud.
+- **Story mode for the five Ulul Azmi** (Nuh, Ibrahim, Musa, Isa, Muhammad), at
+  `#story-<id>`, with 7–14 chapters each. The map stays pinned while you read and
+  follows each chapter:
+  - event pins and the leg travelled, with earlier legs as a faint trail;
+  - disputed sites (Mount Sinai, the sea crossing, the ark's landing, the place of the
+    sacrifice) as dashed rings and dotted routes;
+  - a timeline strip with traditional ages and dates.
+
+  Each chapter has a "How the accounts differ" box. Details from outside scripture are
+  labelled sirah, hadith, tafsir, midrash, church tradition, apocrypha, tradition or
+  scholarship.
 
 Content lives in `prophets/data/`:
 
@@ -52,6 +63,7 @@ Content lives in `prophets/data/`:
 | `bible.js` | Further prophets and prophetesses of the Hebrew Bible |
 | `other.js` | Zarathustra |
 | `religions.js` | The seven religions |
+| `stories.js` | Chapters of the five Ulul Azmi stories |
 
 Open http://localhost:8080/prophets.html; deep links use the entry id, e.g.
 `#ibrahim`, `#religion-druze`, `#in-iq`.

@@ -151,6 +151,7 @@ export class MapStage extends EventTarget {
     this.fly = null;
     this.sway = null;
     this.insets = { top: 0, bottom: 0 };
+    this.routes = [];
     this.frameRequest = { type: 'overview' };
 
     try {
@@ -491,7 +492,7 @@ export class MapStage extends EventTarget {
     this.seaMat.color.copy(cssColor('--map-sea', '#bfd6ea'));
     this.contextMat.color.copy(cssColor('--map-land', '#dcd8e6'));
     this.disputedMat.color.copy(cssColor('--map-disputed', '#e8e2d4'));
-    this.route?.material.color.copy(cssColor('--accent', '#2c47b8'));
+    for (const r of this.routes) r.mesh.material.color.copy(cssColor('--accent', '#2c47b8'));
     const offsets = [0, 0.055, -0.05, 0.1, -0.085, 0.03, -0.025];
     for (const s of this.countries.values()) {
       if (s.disputed) continue;
@@ -645,14 +646,40 @@ export class MapStage extends EventTarget {
     this.flyToBox(box, { ...opts, animate });
   }
 
-  // A clay tube arcing through [lat, lon] points in order; draws itself in.
-  setRoute(ats) {
-    if (this.route) {
-      this.scene.remove(this.route);
-      this.route.geometry.dispose();
-      this.route = null;
+  // Clay tubes arcing through [lat, lon] points, each drawing itself in.
+  // faint: an earlier leg, translucent. dotted: an uncertain route, a row of beads.
+  setRoutes(list) {
+    for (const r of this.routes) { this.scene.remove(r.mesh); r.mesh.geometry.dispose(); r.mesh.material.dispose(); }
+    this.routes = [];
+    for (const { ats, faint, dotted } of list) {
+      if (!ats || ats.length < 2) continue;
+      const path = this.arcPath(ats);
+      const mat = clayMaterial(cssColor('--accent', '#2c47b8'), 0.3);
+      if (faint) Object.assign(mat, { transparent: true, opacity: 0.32 });
+      let mesh;
+      if (dotted) {
+        const n = Math.max(2, Math.round(path.getLength() / 1.1));
+        mesh = new THREE.InstancedMesh(new THREE.SphereGeometry(0.2, 10, 8), mat, n);
+        const m = new THREE.Matrix4();
+        path.getSpacedPoints(n - 1).forEach((p, i) => mesh.setMatrixAt(i, m.makeTranslation(p.x, p.y, p.z)));
+      } else {
+        mesh = new THREE.Mesh(new THREE.TubeGeometry(path, 48 * (ats.length - 1), faint ? 0.11 : 0.17, 8, false), mat);
+      }
+      mesh.castShadow = !faint;
+      // step: index count per tube segment (radial 8 × 6), so the reveal never cuts a ring in half
+      const r = { mesh, reveal: reducedMotion.matches || faint ? 1 : 0, total: dotted ? mesh.count : mesh.geometry.index.count, step: dotted ? 1 : 48 };
+      this.revealRoute(r);
+      this.scene.add(mesh);
+      this.routes.push(r);
     }
-    if (!ats || ats.length < 2) { this.kick(); return; }
+    this.kick();
+  }
+
+  setRoute(ats) {
+    this.setRoutes(ats ? [{ ats }] : []);
+  }
+
+  arcPath(ats) {
     const y0 = BASE_H + 0.9;
     const pts = ats.map((a) => { const [x, z] = this.project(a); return new THREE.Vector3(x, y0, z); });
     const path = new THREE.CurvePath();
@@ -661,21 +688,13 @@ export class MapStage extends EventTarget {
       mid.y += 1.2 + pts[i].distanceTo(pts[i + 1]) * 0.22;
       path.add(new THREE.QuadraticBezierCurve3(pts[i], mid, pts[i + 1]));
     }
-    const radial = 8;
-    const geom = new THREE.TubeGeometry(path, 48 * (pts.length - 1), 0.17, radial, false);
-    this.route = new THREE.Mesh(geom, clayMaterial(cssColor('--accent', '#2c47b8'), 0.3));
-    this.route.castShadow = true;
-    this.route.userData.step = radial * 6; // index count per tube segment
-    this.routeReveal = reducedMotion.matches ? 1 : 0;
-    this.revealRoute();
-    this.scene.add(this.route);
-    this.kick();
+    return path;
   }
 
-  revealRoute() {
-    const g = this.route.geometry;
-    const step = this.route.userData.step;
-    g.setDrawRange(0, Math.floor((g.index.count * this.routeReveal) / step) * step);
+  revealRoute(r) {
+    const n = Math.floor((r.total * r.reveal) / r.step) * r.step;
+    if (r.mesh.isInstancedMesh) r.mesh.count = n;
+    else r.mesh.geometry.setDrawRange(0, n);
   }
 
   // ───────────────────────────── internals ─────────────────────────────
@@ -868,9 +887,10 @@ export class MapStage extends EventTarget {
       active = true;
     }
 
-    if (this.route && this.routeReveal < 1) {
-      this.routeReveal = Math.min(1, this.routeReveal + dt / 1.8);
-      this.revealRoute();
+    for (const r of this.routes) {
+      if (r.reveal >= 1) continue;
+      r.reveal = Math.min(1, r.reveal + dt / 1.8);
+      this.revealRoute(r);
       active = true;
     }
 

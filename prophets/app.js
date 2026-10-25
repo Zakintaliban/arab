@@ -1,5 +1,6 @@
 import { FIGURES, FIGURE_BY_ID, RELIGIONS, RELIGION_BY_ID, countriesOf } from './data/index.js';
-import { homeView, figureView, religionView, religionsView, countryView, aboutView, religionChips, filterFigures } from './views.js';
+import { homeView, figureView, religionView, religionsView, countryView, aboutView, religionChips, filterFigures, storyView, storyStrip } from './views.js';
+import { STORIES } from './data/stories.js';
 import { ARTICLES, BY_CODE } from '../js/data/index.js';
 import { esc } from '../js/format.js';
 
@@ -14,7 +15,7 @@ const store = {
   set(k, v) { try { localStorage.setItem(k, v); } catch { /* storage unavailable */ } },
 };
 
-const state = { view: null, id: null, religion: '' };
+const state = { view: null, id: null, religion: '', chapter: 0 };
 let stage = null;
 
 const countryName = (code) => BY_CODE[code]?.name || (code === 'eh' ? 'Western Sahara' : code);
@@ -87,7 +88,14 @@ document.addEventListener('click', (e) => {
   const flyBtn = e.target.closest('[data-fly]');
   if (flyBtn && stage) {
     stage.flyToLatLon(flyBtn.dataset.fly.split(',').map(Number));
-    stageEl.scrollIntoView({ behavior: smooth(), block: 'start' });
+    if (state.view !== 'story') stageEl.scrollIntoView({ behavior: smooth(), block: 'start' });
+    return;
+  }
+
+  const tick = e.target.closest('[data-chapter]');
+  if (tick && tick.tagName === 'BUTTON') {
+    showChapter(state.id, Number(tick.dataset.chapter));
+    document.getElementById(`ch-${tick.dataset.chapter}`)?.scrollIntoView({ behavior: smooth(), block: 'start' });
   }
 });
 
@@ -136,6 +144,7 @@ document.addEventListener('keydown', (e) => {
 function parseRoute() {
   const h = decodeURIComponent(location.hash.slice(1));
   if (FIGURE_BY_ID[h]) return { view: 'figure', id: h };
+  if (h.startsWith('story-') && STORIES[h.slice(6)]) return { view: 'story', id: h.slice(6) };
   if (h.startsWith('religion-') && RELIGION_BY_ID[h.slice(9)]) return { view: 'religion', id: h.slice(9) };
   if (h.startsWith('in-') && (BY_CODE[h.slice(3)] || h === 'in-eh')) return { view: 'country', id: h.slice(3) };
   if (h === 'religions') return { view: 'religions' };
@@ -146,16 +155,19 @@ function parseRoute() {
 
 function render({ view, id }) {
   const isNewPage = view !== state.view || id !== state.id;
+  if (isNewPage) state.chapter = 0;
   state.view = view;
   state.id = id ?? null;
-  main.innerHTML = view === 'figure' ? figureView(id)
+  main.innerHTML = view === 'story' ? storyView(id)
+    : view === 'figure' ? figureView(id)
     : view === 'religion' ? religionView(id)
       : view === 'religions' ? religionsView()
         : view === 'country' ? countryView(id, countryName(id))
           : view === 'about' ? aboutView() : homeView(state.religion);
   document.body.dataset.view = view;
   stageEl.dataset.view = view;
-  document.title = view === 'figure' ? `${FIGURE_BY_ID[id].title} · Prophets Atlas`
+  document.title = view === 'story' ? `The story of ${FIGURE_BY_ID[id].short} · Prophets Atlas`
+    : view === 'figure' ? `${FIGURE_BY_ID[id].title} · Prophets Atlas`
     : view === 'religion' ? `${RELIGION_BY_ID[id].name} · Prophets Atlas`
       : view === 'country' ? `${countryName(id)} · Prophets Atlas`
         : view === 'religions' ? 'Religions · Prophets Atlas'
@@ -163,6 +175,7 @@ function render({ view, id }) {
   if (isNewPage) window.scrollTo({ top: 0, behavior: 'auto' });
   syncStage();
   bindScrollSpy();
+  bindChapters();
 }
 
 function navigate() {
@@ -189,7 +202,8 @@ function updateInsets() {
   const sr = stageEl.getBoundingClientRect();
   let top = $('.topbar').offsetHeight;
   if (chips.offsetParent !== null) top = Math.max(top, chips.getBoundingClientRect().bottom - sr.top + 6);
-  const bottom = sr.bottom - $('#map-key').getBoundingClientRect().top + 6;
+  const dock = state.view === 'story' ? $('#story-strip') : $('#map-key');
+  const bottom = sr.bottom - dock.getBoundingClientRect().top + 6;
   stage.setInsets({ top, bottom });
 }
 new ResizeObserver(() => updateInsets()).observe(stageEl);
@@ -216,7 +230,9 @@ function syncStage() {
   if (!stage) return;
   chips.innerHTML = religionChips(state.religion);
   updateInsets();
-  if (state.view === 'figure') {
+  if (state.view === 'story') {
+    showChapter(state.id, state.chapter);
+  } else if (state.view === 'figure') {
     showPlaces(FIGURE_BY_ID[state.id].places, true);
   } else if (state.view === 'religion') {
     showPlaces(RELIGION_BY_ID[state.id].places, false);
@@ -239,6 +255,50 @@ function syncStage() {
 function describe(code) {
   const n = FIGURES.filter((f) => f.places.some((p) => countriesOf(p).includes(code))).length;
   return `<span><strong class="tt__name">${esc(countryName(code))}</strong><span class="tt__line">${n ? `${n} figure${n > 1 ? 's' : ''} linked · select to list` : 'No figures linked'}</span></span>`;
+}
+
+// ───────────────────────────── story mode ─────────────────────────────
+const strip = $('#story-strip');
+
+function showChapter(id, i) {
+  state.chapter = i;
+  strip.innerHTML = storyStrip(id, i);
+  main.querySelectorAll('.chapter').forEach((el) => el.classList.toggle('is-current', Number(el.dataset.chapter) === i));
+  if (!stage) return;
+  updateInsets();
+  const chs = STORIES[id].chapters;
+  const ch = chs[i];
+  const pins = [...(ch.places || []).map((pl) => ({ ...pl, kind: 'event' })), ...(ch.alt || []).map((pl) => ({ ...pl, kind: 'alt' }))];
+  // The journey so far: every earlier chapter's leg, joined end to end.
+  const trail = chs.slice(0, i).flatMap((c) => c.route || []).filter((pl, k, a) => pl !== a[k - 1]);
+  const legs = [...(ch.route || []), ...(ch.altRoutes || []).flat()];
+  stage.highlight([...new Set([...pins, ...legs].flatMap(countriesOf))]);
+  stage.setMarkers(null, pins.map((pl) => ({
+    name: pl.name, at: pl.at, kind: pl.kind, owner: countriesOf(pl)[0], priority: pl.kind === 'event' ? 1200 : 1000,
+  })));
+  stage.setRoutes([
+    { ats: trail.map((pl) => pl.at), faint: true },
+    { ats: (ch.route || []).map((pl) => pl.at) },
+    ...(ch.altRoutes || []).map((r) => ({ ats: r.map((pl) => pl.at), dotted: true })),
+  ]);
+  stage.flyToPoints([...pins, ...legs].map((pl) => pl.at));
+}
+
+// The chapter crossing the band just below the sticky map is the current one.
+let chapterSpy = null;
+function bindChapters() {
+  chapterSpy?.disconnect();
+  if (state.view !== 'story') return;
+  // Reading band: from the bottom of the sticky map down 40% of the remaining height.
+  const top = Math.round(stageEl.getBoundingClientRect().height + 8);
+  const band = Math.max(60, Math.round((innerHeight - top) * 0.4));
+  chapterSpy = new IntersectionObserver((entries) => {
+    for (const entry of entries) {
+      const i = Number(entry.target.dataset.chapter);
+      if (entry.isIntersecting && i !== state.chapter) showChapter(state.id, i);
+    }
+  }, { rootMargin: `-${top}px 0px -${Math.max(0, innerHeight - top - band)}px 0px` });
+  main.querySelectorAll('.chapter').forEach((el) => chapterSpy.observe(el));
 }
 
 // Contents highlighting for the current section.
